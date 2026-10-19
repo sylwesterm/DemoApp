@@ -1,0 +1,29 @@
+# Task specification (kept local, not published)
+*.pdf
+
+# Claude Code instructions (local only)
+CLAUDE.md
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+TestResults/
+*.log
+logs/
+
+# React / Vite / Node
+node_modules/
+dist/
+coverage/
+*.local
+npm-debug.log*
+
+# IDE / OS
+.idea/
+.vscode/*
+!.vscode/extensions.json
+Thumbs.db
+.DS_Store
