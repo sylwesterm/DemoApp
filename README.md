@@ -4,7 +4,7 @@ Aplikacja webowa do przeliczania kursów walut oraz przeglądania ich historii n
 
 ## Technologie
 
-- **Backend:** .NET 9 (ASP.NET Core Web API), logowanie z użyciem Serilog
+- **Backend:** .NET 10 (ASP.NET Core Web API), logowanie z użyciem Serilog
 - **Frontend:** React + TypeScript (Vite)
 
 ### Dlaczego React zamiast Angulara
