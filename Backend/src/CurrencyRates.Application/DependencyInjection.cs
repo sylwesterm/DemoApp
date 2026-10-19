@@ -1,20 +1,31 @@
+using CurrencyRates.Application.Behaviors;
 using CurrencyRates.Application.Common;
 using CurrencyRates.Application.Options;
 using CurrencyRates.Application.Services;
 using FluentValidation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace CurrencyRates.Application;
 
 public static class DependencyInjection
 {
     /// <summary>
-    /// Registers the application layer: options, validators and mapping profiles.
+    /// Registers the application layer: CQRS handlers and pipeline, options, validators,
+    /// calculation services and mapping profiles.
     /// </summary>
     public static IServiceCollection AddApplication(this IServiceCollection services, IConfiguration configuration)
     {
         var assembly = typeof(DependencyInjection).Assembly;
+
+        // Behaviors run in registration order: logging wraps validation, which wraps the handler.
+        services.AddMediatR(config =>
+        {
+            config.RegisterServicesFromAssembly(assembly);
+            config.AddOpenBehavior(typeof(LoggingBehavior<,>));
+            config.AddOpenBehavior(typeof(ValidationBehavior<,>));
+        });
 
         // Validators are stateless, so a single instance is shared (also required by options validation).
         services.AddValidatorsFromAssembly(assembly, ServiceLifetime.Singleton);
@@ -23,6 +34,9 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(DisplayOptions.SectionName))
             .ValidateWithFluentValidation()
             .ValidateOnStart();
+
+        // Tests replace it with a fake clock to control "today".
+        services.TryAddSingleton(TimeProvider.System);
 
         // Stateless calculation services.
         services.AddSingleton<ICrossRateCalculator, CrossRateCalculator>();

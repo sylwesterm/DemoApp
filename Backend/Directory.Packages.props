@@ -7,8 +7,11 @@
   <ItemGroup Label="Application">
     <!-- 16.1.1+ fixes CVE-2026-32933. Commercial license with a free Community edition (key: AutoMapper:LicenseKey). -->
     <PackageVersion Include="AutoMapper" Version="16.2.0" />
+    <!-- 12.5.0 is the last version under the free Apache 2.0 license; do not upgrade. -->
+    <PackageVersion Include="MediatR" Version="12.5.0" />
     <PackageVersion Include="FluentValidation" Version="12.2.0" />
     <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="12.2.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.13" />
     <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.13" />
   </ItemGroup>
 
