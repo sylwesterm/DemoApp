@@ -1,5 +1,6 @@
 using CurrencyRates.Application.Common;
 using CurrencyRates.Application.Options;
+using CurrencyRates.Application.Services;
 using FluentValidation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,6 +23,11 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(DisplayOptions.SectionName))
             .ValidateWithFluentValidation()
             .ValidateOnStart();
+
+        // Stateless calculation services.
+        services.AddSingleton<ICrossRateCalculator, CrossRateCalculator>();
+        services.AddSingleton<IRateStatisticsCalculator, RateStatisticsCalculator>();
+        services.AddSingleton<ICurrencySorter, CurrencySorter>();
 
         // The license key is optional (AutoMapper only logs a warning without it) and must not be
         // committed - provide it via user secrets or the AutoMapper__LicenseKey environment variable.
