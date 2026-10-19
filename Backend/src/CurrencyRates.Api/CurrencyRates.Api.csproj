@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CurrencyRates.Application\CurrencyRates.Application.csproj" />
+    <ProjectReference Include="..\CurrencyRates.Infrastructure\CurrencyRates.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

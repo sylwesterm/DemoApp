@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CurrencyRates.Api/CurrencyRates.Api.csproj" />
+    <Project Path="src/CurrencyRates.Application/CurrencyRates.Application.csproj" />
+    <Project Path="src/CurrencyRates.Domain/CurrencyRates.Domain.csproj" />
+    <Project Path="src/CurrencyRates.Infrastructure/CurrencyRates.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CurrencyRates.Api.Tests/CurrencyRates.Api.Tests.csproj" />
+    <Project Path="tests/CurrencyRates.Application.Tests/CurrencyRates.Application.Tests.csproj" />
+    <Project Path="tests/CurrencyRates.Infrastructure.Tests/CurrencyRates.Infrastructure.Tests.csproj" />
+  </Folder>
+</Solution>
