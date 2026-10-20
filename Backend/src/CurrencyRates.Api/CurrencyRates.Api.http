@@ -1,0 +1,33 @@
+@CurrencyRates.Api_HostAddress = http://localhost:5178
+
+### Providers (the "API" drop-down)
+GET {{CurrencyRates.Api_HostAddress}}/api/providers
+Accept: application/json
+
+### Currencies offered by NBP (sorted per configuration)
+GET {{CurrencyRates.Api_HostAddress}}/api/providers/NBP/currencies
+Accept: application/json
+
+### EUR -> USD for a period (200)
+GET {{CurrencyRates.Api_HostAddress}}/api/providers/NBP/rates?source=EUR&target=USD&dateFrom=2026-10-01&dateTo=2026-10-16
+Accept: application/json
+
+### EUR -> PLN for today (dates omitted; 204 on weekends and holidays)
+GET {{CurrencyRates.Api_HostAddress}}/api/providers/NBP/rates?source=EUR&target=PLN
+Accept: application/json
+
+### Table B currency - weekly rates (200)
+GET {{CurrencyRates.Api_HostAddress}}/api/providers/NBP/rates?source=AFN&target=EUR&dateFrom=2026-09-01&dateTo=2026-10-16
+Accept: application/json
+
+### Weekend - no data (204)
+GET {{CurrencyRates.Api_HostAddress}}/api/providers/NBP/rates?source=EUR&target=USD&dateFrom=2026-10-17&dateTo=2026-10-18
+Accept: application/json
+
+### Validation errors (400)
+GET {{CurrencyRates.Api_HostAddress}}/api/providers/NBP/rates?source=EUR&target=eur&dateFrom=2026-10-16&dateTo=2026-10-01
+Accept: application/json
+
+### Unknown provider (404)
+GET {{CurrencyRates.Api_HostAddress}}/api/providers/ECB/currencies
+Accept: application/json
