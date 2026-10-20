@@ -8,6 +8,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/CurrencyRates.Api.Tests/CurrencyRates.Api.Tests.csproj" />
     <Project Path="tests/CurrencyRates.Application.Tests/CurrencyRates.Application.Tests.csproj" />
+    <Project Path="tests/CurrencyRates.Domain.Tests/CurrencyRates.Domain.Tests.csproj" />
     <Project Path="tests/CurrencyRates.Infrastructure.Tests/CurrencyRates.Infrastructure.Tests.csproj" />
   </Folder>
 </Solution>

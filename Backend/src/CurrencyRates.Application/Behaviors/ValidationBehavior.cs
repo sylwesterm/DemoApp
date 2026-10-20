@@ -18,8 +18,9 @@ public sealed class ValidationBehavior<TRequest, TResponse>(IEnumerable<IValidat
     {
         ArgumentNullException.ThrowIfNull(next);
 
-        var context = new ValidationContext<TRequest>(request);
-        var results = await Task.WhenAll(validators.Select(v => v.ValidateAsync(context, cancellationToken)));
+        // Each validator gets its own context: a ValidationContext accumulates failures,
+        // so sharing one would duplicate errors and is not safe for parallel validation.
+        var results = await Task.WhenAll(validators.Select(v => v.ValidateAsync(request, cancellationToken)));
 
         var failures = results
             .SelectMany(result => result.Errors)
