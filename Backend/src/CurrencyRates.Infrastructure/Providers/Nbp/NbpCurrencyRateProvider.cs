@@ -100,6 +100,8 @@ public sealed class NbpCurrencyRateProvider(
     /// <summary>
     /// Invalid data from NBP breaks a domain rule while mapping. That is an upstream fault (HTTP 502),
     /// not a bad request from our user (HTTP 400), so the domain exception is translated.
+    /// AutoMapper wraps constructor exceptions when mapping collections but not single objects,
+    /// so both forms are handled.
     /// </summary>
     private static T MapNbpData<T>(Func<T> map)
     {
@@ -107,9 +109,16 @@ public sealed class NbpCurrencyRateProvider(
         {
             return map();
         }
+        catch (DomainException exception)
+        {
+            throw InvalidNbpData(exception, exception);
+        }
         catch (AutoMapperMappingException exception) when (exception.InnerException is DomainException domainException)
         {
-            throw new ExternalServiceException($"Serwis NBP zwrócił nieprawidłowe dane: {domainException.Message}", exception);
+            throw InvalidNbpData(domainException, exception);
         }
     }
+
+    private static ExternalServiceException InvalidNbpData(DomainException cause, Exception exception) =>
+        new($"Serwis NBP zwrócił nieprawidłowe dane: {cause.Message}", exception);
 }
