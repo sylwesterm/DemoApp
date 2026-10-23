@@ -17,8 +17,8 @@ public sealed class ExchangeRatesController(ISender sender) : ControllerBase
     /// have a published rate. A missing date means today (in Poland). The range is limited to 366 days.
     /// </remarks>
     /// <param name="provider">Provider key, e.g. <c>NBP</c> (case-insensitive).</param>
-    /// <param name="source">Source currency code, e.g. <c>EUR</c>.</param>
-    /// <param name="target">Target currency code, e.g. <c>PLN</c>.</param>
+    /// <param name="sourceCurrency">Source currency code, e.g. <c>EUR</c>.</param>
+    /// <param name="targetCurrency">Target currency code, e.g. <c>PLN</c>.</param>
     /// <param name="dateFrom">Start of the period (<c>yyyy-MM-dd</c>); today when omitted.</param>
     /// <param name="dateTo">End of the period (<c>yyyy-MM-dd</c>); today when omitted.</param>
     /// <param name="cancellationToken">Cancelled when the client disconnects.</param>
@@ -37,14 +37,14 @@ public sealed class ExchangeRatesController(ISender sender) : ControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status504GatewayTimeout)]
     public async Task<ActionResult<ExchangeRateHistoryDto>> GetRates(
         string provider,
-        [FromQuery] string? source,
-        [FromQuery] string? target,
+        [FromQuery] string? sourceCurrency,
+        [FromQuery] string? targetCurrency,
         [FromQuery] DateOnly? dateFrom,
         [FromQuery] DateOnly? dateTo,
         CancellationToken cancellationToken)
     {
         // Missing currencies are passed on as empty, so the validator reports them with its Polish messages.
-        var query = new GetExchangeRatesQuery(provider, source ?? string.Empty, target ?? string.Empty, dateFrom, dateTo);
+        var query = new GetExchangeRatesQuery(provider, sourceCurrency ?? string.Empty, targetCurrency ?? string.Empty, dateFrom, dateTo);
         var result = await sender.Send(query, cancellationToken);
 
         return result is null ? NoContent() : Ok(result);

@@ -1,7 +1,9 @@
 using System.Globalization;
+using CurrencyRates.Api.ErrorHandling;
 using CurrencyRates.Application;
 using CurrencyRates.Infrastructure;
 using Serilog;
+using Serilog.Events;
 
 // Console-only logger for the startup phase; replaced by the configured one once the host is built.
 // A plain (non-reloadable) logger keeps several hosts in one process (integration tests) working.
@@ -22,14 +24,23 @@ try
 
     builder.Services.AddApplication(builder.Configuration);
     builder.Services.AddInfrastructure(builder.Configuration);
+    builder.Services.AddErrorHandling();
     builder.Services.AddControllers();
     builder.Services.AddOpenApi();
 
     var app = builder.Build();
 
+    // Request logging wraps the exception handler, so it logs the final status code (e.g. 404), not the exception.
+    // Failures are logged once, as errors with the exception, by GlobalExceptionHandler, so the summary line stays
+    // Information; Error only for an exception that got past the handler.
     app.UseSerilogRequestLogging(options =>
+    {
         options.MessageTemplate =
-            "Żądanie HTTP {RequestMethod} {RequestPath} zakończone kodem {StatusCode} w {Elapsed:0.0} ms");
+            "Żądanie HTTP {RequestMethod} {RequestPath} zakończone kodem {StatusCode} w {Elapsed:0.0} ms";
+        options.GetLevel = (_, _, exception) =>
+            exception is null ? LogEventLevel.Information : LogEventLevel.Error;
+    });
+    app.UseExceptionHandler();
 
     if (app.Environment.IsDevelopment())
     {
