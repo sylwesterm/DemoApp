@@ -5,22 +5,31 @@ using CurrencyRates.Infrastructure;
 using Serilog;
 using Serilog.Events;
 
-// Console-only logger for the startup phase; replaced by the configured one once the host is built.
-// A plain (non-reloadable) logger keeps several hosts in one process (integration tests) working.
+const string StartupFailedMessage = "Aplikacja zakończyła działanie z powodu nieoczekiwanego błędu";
+
+// Console-only logger for the startup phase, before the configuration is read.
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console(formatProvider: CultureInfo.InvariantCulture)
     .CreateLogger();
+
+IConfiguration? configuration = null;
+WebApplication? app = null;
 
 try
 {
     Log.Information("Uruchamianie aplikacji CurrencyRates.Api");
 
     var builder = WebApplication.CreateBuilder(args);
+    configuration = builder.Configuration;
 
     // Levels, sinks and the log file path come from the "Serilog" section of appsettings.json.
-    builder.Services.AddSerilog((services, logger) => logger
-        .ReadFrom.Configuration(builder.Configuration)
-        .ReadFrom.Services(services));
+    // preserveStaticLogger: the host keeps its own logger instead of routing through the static Log.Logger,
+    // so several hosts in one process (parallel integration tests) do not write into each other's sinks.
+    builder.Services.AddSerilog(
+        (services, logger) => logger
+            .ReadFrom.Configuration(builder.Configuration)
+            .ReadFrom.Services(services),
+        preserveStaticLogger: true);
 
     builder.Services.AddApplication(builder.Configuration);
     builder.Services.AddInfrastructure(builder.Configuration);
@@ -28,13 +37,14 @@ try
     builder.Services.AddControllers();
     builder.Services.AddOpenApi();
 
-    var app = builder.Build();
+    app = builder.Build();
 
     // Request logging wraps the exception handler, so it logs the final status code (e.g. 404), not the exception.
     // Failures are logged once, as errors with the exception, by GlobalExceptionHandler, so the summary line stays
     // Information; Error only for an exception that got past the handler.
     app.UseSerilogRequestLogging(options =>
     {
+        options.Logger = app.Services.GetRequiredService<Serilog.ILogger>();
         options.MessageTemplate =
             "Żądanie HTTP {RequestMethod} {RequestPath} zakończone kodem {StatusCode} w {Elapsed:0.0} ms";
         options.GetLevel = (_, _, exception) =>
@@ -63,9 +73,41 @@ try
 catch (Exception exception) when (exception is not HostAbortedException)
 {
     // HostAbortedException is thrown on purpose by tooling (e.g. dotnet ef, OpenAPI generation); it is not a crash.
-    Log.Fatal(exception, "Aplikacja zakończyła działanie z powodu nieoczekiwanego błędu");
+    await LogStartupFailureAsync(exception);
+    Environment.ExitCode = 1;
 }
 finally
 {
     await Log.CloseAndFlushAsync();
+}
+
+// The host's logger is gone together with the host (RunAsync disposes it), so the crash is written by a short-lived
+// logger built from the same configuration - it reaches the log file too. If even that is impossible, the console
+// logger is used.
+async Task LogStartupFailureAsync(Exception exception)
+{
+    if (app is not null)
+    {
+        // Releases the log file if the host still holds it, e.g. when the failure happened before RunAsync.
+        await app.DisposeAsync();
+    }
+
+    if (configuration is not null)
+    {
+        try
+        {
+            await using var crashLogger = new LoggerConfiguration()
+                .ReadFrom.Configuration(configuration)
+                .CreateLogger();
+            crashLogger.ForContext(Serilog.Core.Constants.SourceContextPropertyName, "CurrencyRates.Api")
+                .Fatal(exception, StartupFailedMessage);
+            return;
+        }
+        catch (Exception loggerException) when (loggerException is not OutOfMemoryException)
+        {
+            Log.Error(loggerException, "Nie udało się utworzyć loggera z konfiguracji");
+        }
+    }
+
+    Log.Fatal(exception, StartupFailedMessage);
 }
