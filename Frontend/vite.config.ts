@@ -13,6 +13,21 @@ export default defineConfig({
       '/api': apiUrl,
     },
   },
+  build: {
+    rolldownOptions: {
+      output: {
+        // Libraries in their own files: they are cached by the browser while the application code changes,
+        // and no single file exceeds Vite's 500 kB warning limit.
+        codeSplitting: {
+          groups: [
+            { name: 'react', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/, priority: 3 },
+            { name: 'mui-x', test: /node_modules[\\/](@mui[\\/]x-[^\\/]+|dayjs)[\\/]/, priority: 2 },
+            { name: 'mui', test: /node_modules[\\/](@mui|@emotion)[\\/]/, priority: 1 },
+          ],
+        },
+      },
+    },
+  },
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
