@@ -17,12 +17,17 @@ export default defineConfig({
     rolldownOptions: {
       output: {
         // Libraries in their own files: they are cached by the browser while the application code changes,
-        // and no single file exceeds Vite's 500 kB warning limit.
+        // and no single file exceeds Vite's 500 kB warning limit. A group also takes the dependencies of its
+        // modules, so the shared groups (react, mui) need a higher priority than the MUI X groups -
+        // otherwise the first MUI X group would swallow the whole of MUI. The table and the chart are only
+        // needed for the results, which are loaded lazily, so their groups are not downloaded at start.
         codeSplitting: {
           groups: [
-            { name: 'react', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/, priority: 3 },
-            { name: 'mui-x', test: /node_modules[\\/](@mui[\\/]x-[^\\/]+|dayjs)[\\/]/, priority: 2 },
-            { name: 'mui', test: /node_modules[\\/](@mui|@emotion)[\\/]/, priority: 1 },
+            { name: 'react', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/, priority: 5 },
+            { name: 'mui', test: /node_modules[\\/](@mui[\\/](?!x-)|@mui[\\/]x-internals|@emotion)/, priority: 4 },
+            { name: 'mui-date-pickers', test: /node_modules[\\/](@mui[\\/]x-date-pickers|dayjs)[\\/]/, priority: 3 },
+            { name: 'mui-data-grid', test: /node_modules[\\/]@mui[\\/]x-data-grid[\\/]/, priority: 3 },
+            { name: 'mui-charts', test: /node_modules[\\/]@mui[\\/]x-charts/, priority: 3 },
           ],
         },
       },

@@ -62,7 +62,12 @@ try
         });
     }
 
-    app.UseHttpsRedirection();
+    // In Development the frontend calls the API through the Vite dev-server proxy over plain HTTP. A redirect to
+    // HTTPS would send the browser to another origin (https://localhost:7245), where the request fails on CORS.
+    if (!app.Environment.IsDevelopment())
+    {
+        app.UseHttpsRedirection();
+    }
 
     app.UseAuthorization();
 

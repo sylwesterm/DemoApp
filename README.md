@@ -26,7 +26,7 @@ cd Backend
 dotnet run --project src/CurrencyRates.Api
 ```
 
-W Visual Studio: otwórz `Backend/CurrencyRates.slnx`, ustaw `CurrencyRates.Api` jako projekt startowy i uruchom (F5).
+W Visual Studio: otwórz `Backend/CurrencyRates.slnx`, ustaw `CurrencyRates.Api` jako projekt startowy i uruchom (F5). Działa zarówno profil `http`, jak i `https` – w środowisku `Development` API nie przekierowuje na HTTPS, ponieważ frontend łączy się z nim przez proxy Vite po HTTP.
 
 Po starcie API jest dostępne pod adresem `http://localhost:5178`, a dokumentacja Swagger pod adresem **http://localhost:5178/swagger** (tylko w środowisku `Development`). Gotowe przykładowe zapytania znajdują się w pliku `Backend/src/CurrencyRates.Api/CurrencyRates.Api.http`, który można uruchomić bezpośrednio w Visual Studio lub VS Code.
 

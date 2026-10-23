@@ -1,8 +1,24 @@
 import { plPL as materialPlPL } from '@mui/material/locale'
-import { createTheme } from '@mui/material/styles'
+import { createTheme, type ThemeOptions } from '@mui/material/styles'
 import { plPL as datePickersPlPL } from '@mui/x-date-pickers/locales'
-// Adds the date picker components (e.g. MuiLocalizationProvider) to the theme's TypeScript types.
+// Add the MUI X components (e.g. MuiLocalizationProvider) to the theme's TypeScript types.
+// The data grid's Polish texts are set on the grid itself (RatesTable), so the grid stays out of the start bundle.
+import type {} from '@mui/x-charts/themeAugmentation'
 import type {} from '@mui/x-date-pickers/themeAugmentation'
+
+/** MUI X Charts has no Polish locale; these are the only texts the free line chart can show. */
+const chartsPlPL: ThemeOptions = {
+  components: {
+    MuiChartsLocalizationProvider: {
+      defaultProps: {
+        localeText: {
+          loading: 'Ładowanie danych…',
+          noData: 'Brak danych do wyświetlenia',
+        },
+      },
+    },
+  },
+}
 
 /**
  * Application theme: light and dark colour schemes that follow the system setting (CSS variables,
@@ -33,4 +49,5 @@ export const theme = createTheme(
   },
   materialPlPL,
   datePickersPlPL,
+  chartsPlPL,
 )

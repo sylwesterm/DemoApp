@@ -1,7 +1,13 @@
 import CurrencyExchangeIcon from '@mui/icons-material/CurrencyExchange'
-import { Alert, AppBar, Box, Container, Link, Toolbar, Typography } from '@mui/material'
+import { Alert, AppBar, Box, Container, LinearProgress, Link, Toolbar, Typography } from '@mui/material'
 import { ConversionForm } from './features/conversion/ConversionForm'
+import { lazy, Suspense } from 'react'
 import { useExchangeRates } from './features/conversion/useExchangeRates'
+
+// The table and the chart are large and only needed after the first conversion, so they are loaded on demand.
+const ResultsView = lazy(() =>
+  import('./features/results/ResultsView').then((module) => ({ default: module.ResultsView })),
+)
 
 function App() {
   const { state, load } = useExchangeRates()
@@ -36,12 +42,10 @@ function App() {
             </Alert>
           )}
           {state.status === 'error' && <Alert severity="error">{state.error.message}</Alert>}
-          {/* Temporary summary - the statistics, the table and the chart come in the next step. */}
           {state.status === 'success' && (
-            <Alert severity="success">
-              Pobrano {state.history.rates.length} kursów {state.history.sourceCurrency} →{' '}
-              {state.history.targetCurrency}.
-            </Alert>
+            <Suspense fallback={<LinearProgress aria-label="Ładowanie wyników" />}>
+              <ResultsView history={state.history} />
+            </Suspense>
           )}
         </Box>
       </Container>

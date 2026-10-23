@@ -11,6 +11,12 @@ describe('theme', () => {
     expect(theme.components?.MuiLocalizationProvider?.defaultProps?.localeText?.cancelButtonLabel).toBe('Anuluj')
   })
 
+  it('uses Polish texts in the charts', () => {
+    expect(theme.components?.MuiChartsLocalizationProvider?.defaultProps?.localeText?.noData).toBe(
+      'Brak danych do wyświetlenia',
+    )
+  })
+
   it('provides light and dark colour schemes', () => {
     expect(theme).toHaveProperty('colorSchemes.light')
     expect(theme).toHaveProperty('colorSchemes.dark')
