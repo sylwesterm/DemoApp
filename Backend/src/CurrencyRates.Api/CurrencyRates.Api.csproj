@@ -1,9 +1,10 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <!-- XML comments of controllers are included in the OpenAPI document (Swagger). -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <UserSecretsId>a0ae21a1-7692-494c-9716-0d72b7eceb0d</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
