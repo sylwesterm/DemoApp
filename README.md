@@ -149,6 +149,22 @@ Backend/src
 
 Nowy dostawca automatycznie pojawi się w `GET /api/providers`, a więc i na liście w aplikacji. Kontrolery, handlery ani frontend nie wymagają zmian.
 
-## Frontend
+## Uruchomienie frontendu
 
-_Instrukcja uruchomienia frontendu zostanie dodana wraz z jego implementacją._
+Wymagany jest [Node.js](https://nodejs.org/) w wersji 22.12 lub nowszej (albo 20.19+). Najpierw uruchom backend (patrz wyżej), a następnie w drugim oknie terminala:
+
+```bash
+cd Frontend
+npm install
+npm run dev
+```
+
+Aplikacja jest dostępna pod adresem **http://localhost:5173**. Serwer deweloperski Vite przekazuje zapytania `/api` do backendu (`http://localhost:5178`), dzięki czemu przeglądarka komunikuje się z jednym adresem i backend nie wymaga konfiguracji CORS. Inny adres backendu można wskazać zmienną środowiskową `API_URL`.
+
+Pozostałe polecenia:
+
+| Polecenie | Działanie |
+|---|---|
+| `npm test` | Testy (Vitest + React Testing Library). |
+| `npm run lint` | Analiza statyczna kodu (oxlint). |
+| `npm run build` | Sprawdzenie typów i wersja produkcyjna w katalogu `dist/`. |
