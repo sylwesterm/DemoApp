@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.Json;
 using MediatR;
 using Microsoft.Extensions.Logging;
 
@@ -20,7 +21,7 @@ public sealed partial class LoggingBehavior<TRequest, TResponse>(ILogger<Logging
         ArgumentNullException.ThrowIfNull(next);
 
         var requestName = typeof(TRequest).Name;
-        LogHandling(requestName, request);
+        LogHandling(requestName, new JsonText(request));
 
         var stopwatch = Stopwatch.StartNew();
         var response = await next(cancellationToken);
@@ -29,8 +30,18 @@ public sealed partial class LoggingBehavior<TRequest, TResponse>(ILogger<Logging
         return response;
     }
 
-    [LoggerMessage(Level = LogLevel.Debug, Message = "Obsługa zapytania {RequestName}: {@Request}")]
-    private partial void LogHandling(string requestName, TRequest request);
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Obsługa zapytania {RequestName}: {Request}")]
+    private partial void LogHandling(string requestName, JsonText request);
+
+    /// <summary>
+    /// The request as JSON, produced only when the entry is actually written (the logger calls ToString then).
+    /// JSON rather than structured destructuring: dates come out as ISO (2026-10-12) on every machine, whereas
+    /// the logging sinks would render DateOnly in the machine's culture (12/10/2026).
+    /// </summary>
+    private readonly struct JsonText(object value)
+    {
+        public override string ToString() => JsonSerializer.Serialize(value, value.GetType());
+    }
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Zakończono obsługę zapytania {RequestName} w {ElapsedMilliseconds} ms")]
     private partial void LogHandled(string requestName, long elapsedMilliseconds);

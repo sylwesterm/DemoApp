@@ -22,7 +22,8 @@ describe('ResultsView', () => {
     renderWithProviders(<ResultsView history={history} />)
 
     expect(screen.getByRole('heading', { level: 2, name: 'EUR → USD' })).toBeInTheDocument()
-    expect(screen.getByText(/Kursy z okresu 15\.10\.2026 – 14\.10\.2026 · liczba notowań: 2/)).toBeInTheDocument()
+    // The rows arrive out of order on purpose: the period and the chart must not depend on it.
+    expect(screen.getByText(/Kursy z okresu 14\.10\.2026 – 15\.10\.2026 · liczba notowań: 2/)).toBeInTheDocument()
   })
 
   it('shows the minimum, maximum and average rate', () => {

@@ -1,7 +1,15 @@
 import dayjs from 'dayjs'
 import { describe, expect, it } from 'vitest'
 import type { Currency } from '../../api/types'
-import { initialValues, pickDefaultProvider, toQuery, validate, type ConversionFormValues } from './conversionFormModel'
+import {
+  initialValues,
+  pickDefaultProvider,
+  splitServerErrors,
+  todayInPoland,
+  toQuery,
+  validate,
+  type ConversionFormValues,
+} from './conversionFormModel'
 
 const today = dayjs('2026-10-16')
 const eur: Currency = { code: 'EUR', name: 'euro', label: 'EUR - euro' }
@@ -43,10 +51,10 @@ describe('validate', () => {
     expect(validate(values(), today)).toEqual({})
   })
 
-  it('requires both currencies', () => {
+  it('requires both currencies, with the same messages as the backend', () => {
     expect(validate(values({ sourceCurrency: null, targetCurrency: null }), today)).toEqual({
-      sourceCurrency: 'Wybierz walutę źródłową.',
-      targetCurrency: 'Wybierz walutę docelową.',
+      sourceCurrency: 'Waluta źródłowa jest wymagana.',
+      targetCurrency: 'Waluta docelowa jest wymagana.',
     })
   })
 
@@ -60,13 +68,15 @@ describe('validate', () => {
     expect(validate(values({ dateFrom: null, dateTo: null }), today)).toEqual({})
   })
 
-  it('rejects future dates', () => {
+  it('rejects a future "date to"', () => {
     expect(validate(values({ dateTo: today.add(1, 'day') }), today)).toEqual({
-      dateTo: 'Data nie może być z przyszłości.',
+      dateTo: 'Data do nie może być datą z przyszłości.',
     })
-    // An empty "date to" means today, so a future "date from" is reported on its own field.
+  })
+
+  it('reports a future "date from" with an empty "date to" (= today) as a reversed range, like the backend', () => {
     expect(validate(values({ dateFrom: today.add(1, 'day'), dateTo: null }), today)).toEqual({
-      dateFrom: 'Data nie może być z przyszłości.',
+      dateFrom: 'Data od nie może być późniejsza niż data do.',
     })
   })
 
@@ -104,5 +114,32 @@ describe('toQuery', () => {
 
     expect(query.dateFrom).toBeUndefined()
     expect(query.dateTo).toBeUndefined()
+  })
+})
+
+describe('todayInPoland', () => {
+  it('uses the date in Poland, not in the browser time zone', () => {
+    // 23:30 UTC on 16 October is already 01:30 on 17 October in Warsaw (CEST, UTC+2).
+    expect(todayInPoland(new Date('2026-10-16T23:30:00Z')).format('YYYY-MM-DD')).toBe('2026-10-17')
+    // 21:30 UTC is still 23:30 on 16 October in Warsaw.
+    expect(todayInPoland(new Date('2026-10-16T21:30:00Z')).format('YYYY-MM-DD')).toBe('2026-10-16')
+  })
+})
+
+describe('splitServerErrors', () => {
+  it('puts messages under form fields, mapping the backend key providerKey to the provider field', () => {
+    expect(
+      splitServerErrors({
+        dateFrom: ['Zakres dat nie może przekraczać 366 dni.'],
+        providerKey: ['Należy wybrać dostawcę kursów walut.'],
+      }),
+    ).toEqual({
+      byField: { dateFrom: 'Zakres dat nie może przekraczać 366 dni.', provider: 'Należy wybrać dostawcę kursów walut.' },
+      other: [],
+    })
+  })
+
+  it('keeps messages that belong to no field, so they can be shown elsewhere', () => {
+    expect(splitServerErrors({ '': ['Ogólny błąd zapytania.'] })).toEqual({ byField: {}, other: ['Ogólny błąd zapytania.'] })
   })
 })

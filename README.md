@@ -5,7 +5,7 @@ Aplikacja webowa do przeliczania kursów walut oraz przeglądania ich historii n
 ## Technologie
 
 - **Backend:** .NET 10 (ASP.NET Core Web API), Clean Architecture, CQRS (MediatR), AutoMapper, FluentValidation, Serilog
-- **Frontend:** React + TypeScript (Vite)
+- **Frontend:** React 19 + TypeScript (Vite), MUI 9 (komponenty, kalendarz, tabela DataGrid, wykres)
 
 ### Dlaczego React zamiast Angulara
 
@@ -14,8 +14,28 @@ W treści zadania jako frontend wskazany jest Angular. Ponieważ jest to aplikac
 ## Wymagania
 
 - [.NET SDK 10](https://dotnet.microsoft.com/download/dotnet/10.0) (wersja 10.0.100 lub nowsza, patrz `Backend/global.json`)
+- [Node.js](https://nodejs.org/) 22.12 lub nowszy (albo 20.19+) z npm
 - opcjonalnie Visual Studio 2026 lub inne IDE obsługujące pliki `.slnx`
 - dostęp do internetu (aplikacja pobiera kursy z `https://api.nbp.pl`)
+
+## Szybki start
+
+W dwóch oknach terminala:
+
+```bash
+# 1. backend – http://localhost:5178
+cd Backend
+dotnet run --project src/CurrencyRates.Api
+```
+
+```bash
+# 2. frontend – http://localhost:5173
+cd Frontend
+npm install
+npm run dev
+```
+
+Następnie otwórz **http://localhost:5173**, wybierz waluty i kliknij **Przelicz**. Szczegóły obu części opisują kolejne sekcje.
 
 ## Uruchomienie backendu
 
@@ -61,10 +81,11 @@ Cała konfiguracja znajduje się w pliku `Backend/src/CurrencyRates.Api/appsetti
 | `Display:DateFormat` | Format daty w tabeli kursów (np. `dd.MM.yyyy`). | `yyyy-MM-dd` |
 | `Display:CurrencySortOrder` | Sortowanie walut: `CodeAscending`, `CodeDescending`, `NameAscending`, `NameDescending`. | `CodeAscending` |
 | `CurrencyProviders:Nbp:BaseUrl` | Adres API NBP. | `https://api.nbp.pl/api/` |
-| `CurrencyProviders:Nbp:MaxDaysPerRequest` | Maksymalna liczba dni w jednym zapytaniu do NBP (dłuższe zakresy są dzielone). | `367` |
+| `CurrencyProviders:Nbp:MaxDaysPerRequest` | Maksymalna liczba dni w jednym zapytaniu do NBP (limit API NBP to 367). Jeśli ustawisz mniej niż zakres zapytania, zakres zostanie podzielony na kilka zapytań. | `367` |
 | `CurrencyProviders:Nbp:CurrencyListCacheDuration` | Jak długo lista walut jest przechowywana w pamięci podręcznej. | `01:00:00` |
 | `CurrencyProviders:Nbp:Resilience:*` | Ponowienia i limity czasu (patrz niżej). | 3 ponowienia, 0,5 s, 10 s, 30 s |
 | `Serilog:MinimumLevel:Default` | Poziom logowania (`Debug`, `Information`, `Warning`, `Error`). | `Information` (`Debug` w `Development`) |
+| `Serilog:WriteTo:1:Args:restrictedToMinimumLevel` | Najniższy poziom zapisywany do pliku (konsola dostaje wszystko od poziomu ogólnego). | `Information` |
 | `Serilog:WriteTo:1:Args:path` | Ścieżka pliku logu. | `logs/currency-rates-.log` |
 
 Każdą wartość można nadpisać zmienną środowiskową, zastępując `:` podwójnym podkreśleniem, np.:
@@ -109,16 +130,25 @@ Wywołania API NBP są zabezpieczone (biblioteka `Microsoft.Extensions.Http.Resi
 - **limit czasu pojedynczej próby** oraz **całkowity limit czasu** zapytania;
 - **circuit breaker** – przy serii błędów kolejne wywołania są na chwilę wstrzymywane, zamiast obciążać niedziałający serwis.
 
-Parametry ustawia się w sekcji `CurrencyProviders:Nbp:Resilience` (`MaxRetryAttempts`, `RetryBaseDelay`, `AttemptTimeout`, `TotalRequestTimeout`). Lista walut jest dodatkowo przechowywana w pamięci podręcznej, a zakresy dłuższe niż limit NBP są dzielone na kilka równoległych zapytań.
+Parametry ustawia się w sekcji `CurrencyProviders:Nbp:Resilience` (`MaxRetryAttempts`, `RetryBaseDelay`, `AttemptTimeout`, `TotalRequestTimeout`). Lista walut jest dodatkowo przechowywana w pamięci podręcznej. Zakres jednego przeliczenia jest ograniczony do 366 dni, co mieści się w limicie API NBP (367 dni), więc wystarcza jedno zapytanie na walutę. Gdyby `MaxDaysPerRequest` ustawiono niżej (np. dla dostawcy o mniejszym limicie), zakres zostanie podzielony na kilka równoległych zapytań.
 
 ## Testy
+
+Backend:
 
 ```bash
 cd Backend
 dotnet test CurrencyRates.slnx
 ```
 
-| Projekt | Zakres |
+Frontend (opis testów w sekcji [Frontend](#frontend)):
+
+```bash
+cd Frontend
+npm test
+```
+
+| Projekt backendu | Zakres |
 |---|---|
 | `CurrencyRates.Domain.Tests` | Reguły modeli domenowych (waluta, zakres dat, kurs, statystyki). |
 | `CurrencyRates.Application.Tests` | Obsługa zapytań, walidacja, kursy krzyżowe, statystyki, sortowanie, mapowanie. |
@@ -149,9 +179,21 @@ Backend/src
 
 Nowy dostawca automatycznie pojawi się w `GET /api/providers`, a więc i na liście w aplikacji. Kontrolery, handlery ani frontend nie wymagają zmian.
 
-## Uruchomienie frontendu
+## Frontend
 
-Wymagany jest [Node.js](https://nodejs.org/) w wersji 22.12 lub nowszej (albo 20.19+). Najpierw uruchom backend (patrz wyżej), a następnie w drugim oknie terminala:
+### Funkcje
+
+- **Dostawca kursów (API)** – lista pobierana z backendu, domyślnie wybrany NBP. Nowy dostawca dodany w backendzie pojawia się tu automatycznie.
+- **Waluta źródłowa i docelowa** – listy z wyszukiwaniem po kodzie lub nazwie (np. „eur” albo „dolar”), w formacie `kod - nazwa` i w kolejności ustalonej w konfiguracji backendu. Przycisk ⇄ zamienia waluty miejscami.
+- **Data od / Data do** – polski kalendarz, domyślnie dzisiejsza data. Puste pole oznacza dzień dzisiejszy, daty z przyszłości są zablokowane.
+- **Przelicz** – formularz jest sprawdzany przed wysłaniem (brak waluty, ta sama waluta, data z przyszłości, odwrócony lub zbyt długi zakres). Komunikaty po polsku pojawiają się pod polami, także te zwrócone przez backend.
+- **Wyniki** – minimum, maksimum i średnia, wykres kursu w czasie oraz tabela z sortowaniem i stronicowaniem. Data w tabeli ma format z konfiguracji backendu, a kurs postać `1 EUR - 4,21 PLN`.
+- **Brak danych i błędy** – czytelny komunikat dla okresu bez kursów (np. weekend), błędu dostawcy, przekroczenia czasu czy niedostępnego serwera. Gdy nie uda się pobrać listy dostawców lub walut, przycisk **Spróbuj ponownie** ponawia pobieranie bez przeładowania strony. Przy błędzie serwera wyświetlany jest identyfikator błędu, pod którym błąd jest zapisany w logu backendu.
+- **Tryb ciemny** – motyw dopasowuje się automatycznie do ustawień systemu.
+
+### Uruchomienie
+
+Najpierw uruchom backend (patrz wyżej), a następnie w drugim oknie terminala:
 
 ```bash
 cd Frontend
@@ -168,3 +210,28 @@ Pozostałe polecenia:
 | `npm test` | Testy (Vitest + React Testing Library). |
 | `npm run lint` | Analiza statyczna kodu (oxlint). |
 | `npm run build` | Sprawdzenie typów i wersja produkcyjna w katalogu `dist/`. |
+
+### Struktura
+
+```
+Frontend/src
+├── api/                  typowany klient REST API, typy odpowiedzi, błędy z polskimi komunikatami
+├── features/conversion/  formularz przeliczania, jego walidacja i pobieranie kursów
+├── features/results/     statystyki, wykres i tabela kursów (ładowane dopiero przy pierwszych wynikach)
+├── hooks/                pobieranie danych z anulowaniem nieaktualnych zapytań
+├── theme.ts              motyw MUI: polskie teksty komponentów, tryb jasny i ciemny
+└── App.tsx               układ strony
+```
+
+Biblioteki są dzielone na osobne pliki, a tabela i wykres są pobierane dopiero przy pierwszym wyniku, więc pierwsze wczytanie strony jest szybsze.
+
+### Testy frontendu
+
+Testy (Vitest, React Testing Library, jsdom) nie wymagają uruchomionego backendu – zapytania do API są zastępowane atrapami:
+
+- klient API – adresy zapytań, odpowiedź 204, komunikaty błędów, brak połączenia, anulowanie zapytania;
+- walidacja formularza i budowanie zapytania;
+- formularz – domyślny dostawca, wyszukiwanie walut, komunikaty walidacji, zamiana walut, zmiana dostawcy, ponowienie pobierania, błędy z serwera;
+- pobieranie danych – anulowanie nieaktualnych zapytań i ignorowanie spóźnionych odpowiedzi;
+- widok wyników – statystyki, tabela w formacie ze specyfikacji, polskie etykiety;
+- cała aplikacja – wynik przeliczenia, brak danych (204), błąd serwera z identyfikatorem błędu, komunikat dla czytników ekranu.

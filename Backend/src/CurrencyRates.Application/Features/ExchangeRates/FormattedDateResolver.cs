@@ -16,6 +16,6 @@ public sealed class FormattedDateResolver(IOptions<DisplayOptions> options)
     {
         ArgumentNullException.ThrowIfNull(source);
 
-        return source.Date.ToString(options.Value.DateFormat, DisplayCulture.Polish);
+        return source.Date.ToString(options.Value.DateFormat, DisplayCulture.PolishDates);
     }
 }

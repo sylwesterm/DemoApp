@@ -12,6 +12,7 @@ public class DisplayOptionsValidatorTests
     [InlineData("yyyy-MM-dd")]
     [InlineData("dd.MM.yyyy")]
     [InlineData("d MMMM yyyy")]
+    [InlineData("dd/MM/yyyy")]
     public void DateFormat_Valid_HasNoErrors(string format)
     {
         validator.TestValidate(new DisplayOptions { DateFormat = format }).ShouldNotHaveAnyValidationErrors();
@@ -37,12 +38,28 @@ public class DisplayOptionsValidatorTests
             .WithErrorMessage($"Format daty '{format}' jest nieprawidłowy - musi zawierać dzień, miesiąc i rok.");
     }
 
-    [Fact]
-    public void CurrencySortOrder_UndefinedValue_ReportsPolishError()
+    [Theory]
+    [InlineData("NameDescending", CurrencySortOrder.NameDescending)]
+    [InlineData("codeascending", CurrencySortOrder.CodeAscending)]
+    public void CurrencySortOrder_KnownName_IsAcceptedCaseInsensitively(string value, CurrencySortOrder expected)
     {
-        validator.TestValidate(new DisplayOptions { CurrencySortOrder = (CurrencySortOrder)7 })
+        var options = new DisplayOptions { CurrencySortOrder = value };
+
+        validator.TestValidate(options).ShouldNotHaveAnyValidationErrors();
+        options.SortOrder.ShouldBe(expected);
+    }
+
+    [Theory]
+    [InlineData("CodeAsc")]  // a typo - the configuration binder would reject it with an English message
+    [InlineData("7")]
+    [InlineData("1")]        // numbers are not documented values, even when they map to one
+    [InlineData("CodeAscending, NameDescending")]  // Enum.TryParse would combine them into a defined value
+    [InlineData("")]
+    public void CurrencySortOrder_Unknown_ReportsPolishError(string value)
+    {
+        validator.TestValidate(new DisplayOptions { CurrencySortOrder = value })
             .ShouldHaveValidationErrorFor(o => o.CurrencySortOrder)
-            .WithErrorMessage("Nieprawidłowy sposób sortowania walut '7'. " +
+            .WithErrorMessage($"Nieprawidłowy sposób sortowania walut '{value}'. " +
                               "Dozwolone wartości: CodeAscending, CodeDescending, NameAscending, NameDescending.");
     }
 }

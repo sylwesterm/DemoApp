@@ -20,7 +20,7 @@ public sealed class GetCurrenciesQueryHandler(
 
         var provider = providerFactory.GetByKey(request.ProviderKey);
         var currencies = await provider.GetCurrenciesAsync(cancellationToken);
-        var sorted = sorter.Sort(currencies, displayOptions.Value.CurrencySortOrder);
+        var sorted = sorter.Sort(currencies, displayOptions.Value.SortOrder);
 
         return mapper.Map<List<CurrencyDto>>(sorted);
     }

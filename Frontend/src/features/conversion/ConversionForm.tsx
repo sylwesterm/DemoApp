@@ -1,7 +1,6 @@
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import { Alert, Autocomplete, Box, Button, IconButton, MenuItem, Paper, Stack, TextField, Tooltip, Typography } from '@mui/material'
 import { DatePicker } from '@mui/x-date-pickers/DatePicker'
-import dayjs from 'dayjs'
 import { useState, type FormEvent } from 'react'
 import { getCurrencies, getProviders } from '../../api/client'
 import type { Currency, ExchangeRatesQuery } from '../../api/types'
@@ -9,6 +8,8 @@ import { useApiData } from '../../hooks/useApiData'
 import {
   initialValues,
   pickDefaultProvider,
+  splitServerErrors,
+  todayInPoland,
   toQuery,
   validate,
   type ConversionField,
@@ -19,6 +20,8 @@ import {
 const loadProviders = (_key: string, signal: AbortSignal) => getProviders(signal)
 const loadCurrencies = (provider: string, signal: AbortSignal) => getCurrencies(provider, signal)
 
+const NO_SERVER_ERRORS: Readonly<Record<string, string[]>> = {}
+
 interface ConversionFormProps {
   onSubmit: (query: ExchangeRatesQuery) => void
   /** Shows the button as busy while the rates are being loaded. */
@@ -27,28 +30,39 @@ interface ConversionFormProps {
   serverErrors?: Readonly<Record<string, string[]>>
 }
 
-export function ConversionForm({ onSubmit, submitting = false, serverErrors = {} }: ConversionFormProps) {
-  const [values, setValues] = useState(() => initialValues(dayjs()))
+export function ConversionForm({ onSubmit, submitting = false, serverErrors = NO_SERVER_ERRORS }: ConversionFormProps) {
+  const today = todayInPoland()
+  const [values, setValues] = useState(() => initialValues(today))
   // Errors appear after the first "Przelicz" and then follow every change.
   const [submitted, setSubmitted] = useState(false)
+  // Fields edited since the server's messages arrived - their (now outdated) server message is hidden.
+  const [edited, setEdited] = useState<{ source: object; fields: ConversionField[] }>({ source: serverErrors, fields: [] })
+  const editedFields = edited.source === serverErrors ? edited.fields : []
 
   const providers = useApiData('providers', loadProviders)
   const provider = values.provider || pickDefaultProvider(providers.data)
   const currencies = useApiData(provider || null, loadCurrencies)
 
   const current: ConversionFormValues = { ...values, provider }
-  const errors = submitted ? validate(current, dayjs()) : {}
-  const errorFor = (field: ConversionField) => errors[field] ?? serverErrors[field]?.[0]
-  const loadError = providers.error ?? currencies.error
+  const errors = submitted ? validate(current, today) : {}
+  const serverFieldErrors = splitServerErrors(serverErrors).byField
+  const errorFor = (field: ConversionField) =>
+    errors[field] ?? (editedFields.includes(field) ? undefined : serverFieldErrors[field])
+  const failedList = providers.error ? providers : currencies.error ? currencies : undefined
 
   function update(changes: Partial<ConversionFormValues>) {
     setValues((previous) => ({ ...previous, ...changes }))
+    const fields = Object.keys(changes) as ConversionField[]
+    setEdited((previous) => ({
+      source: serverErrors,
+      fields: [...(previous.source === serverErrors ? previous.fields : []), ...fields],
+    }))
   }
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setSubmitted(true)
-    if (Object.keys(validate(current, dayjs())).length > 0) return
+    if (Object.keys(validate(current, today)).length > 0) return
     onSubmit(toQuery(current))
   }
 
@@ -79,7 +93,8 @@ export function ConversionForm({ onSubmit, submitting = false, serverErrors = {}
       label={label}
       value={values[field]}
       onChange={(date) => update({ [field]: date })}
-      disableFuture
+      // Today in Poland rather than in the browser's time zone - the same "today" the backend checks against.
+      maxDate={today}
       slotProps={{
         field: { clearable: true },
         textField: { fullWidth: true, error: Boolean(errorFor(field)), helperText: errorFor(field) ?? ' ' },
@@ -90,7 +105,18 @@ export function ConversionForm({ onSubmit, submitting = false, serverErrors = {}
   return (
     <Paper component="form" variant="outlined" onSubmit={handleSubmit} noValidate sx={{ p: { xs: 2, sm: 3 } }}>
       <Stack spacing={1}>
-        {loadError && <Alert severity="error">{loadError.message}</Alert>}
+        {failedList && (
+          <Alert
+            severity="error"
+            action={
+              <Button color="inherit" size="small" onClick={failedList.reload}>
+                Spróbuj ponownie
+              </Button>
+            }
+          >
+            {failedList.error?.message}
+          </Alert>
+        )}
 
         <TextField
           select

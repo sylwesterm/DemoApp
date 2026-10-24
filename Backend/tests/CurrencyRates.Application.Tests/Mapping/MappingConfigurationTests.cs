@@ -26,6 +26,8 @@ public class MappingConfigurationTests
     [InlineData("yyyy-MM-dd", "2026-10-05")]
     [InlineData("dd.MM.yyyy", "05.10.2026")]
     [InlineData("d MMMM yyyy", "5 października 2026")]
+    // "/" is a culture placeholder in .NET (in pl-PL it would print "."); the configured format must be kept as is.
+    [InlineData("dd/MM/yyyy", "05/10/2026")]
     public void ExchangeRate_FormatsDateWithConfiguredFormatAndPolishCulture(string format, string expected)
     {
         var dto = TestServices.CreateMapper(format).Map<ExchangeRateDto>(new ExchangeRate(new DateOnly(2026, 10, 5), 4.25m));

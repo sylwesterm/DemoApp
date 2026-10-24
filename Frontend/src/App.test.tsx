@@ -36,7 +36,7 @@ describe('App', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: 'Kursy walut' })).toBeInTheDocument()
     expect(await screen.findByRole('button', { name: 'Przelicz' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'API Narodowego Banku Polskiego' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Narodowy Bank Polski' })).toHaveAttribute(
       'href',
       'https://api.nbp.pl/',
     )
@@ -69,6 +69,39 @@ describe('App', () => {
     await convert()
 
     expect(await screen.findByText(/Brak kursów w wybranym okresie/)).toBeInTheDocument()
+  })
+
+  it('announces the loaded results to screen readers in one short status line', async () => {
+    vi.mocked(getExchangeRates).mockResolvedValue({
+      provider: 'NBP',
+      sourceCurrency: 'EUR',
+      targetCurrency: 'USD',
+      dateFrom: '2026-10-16',
+      dateTo: '2026-10-16',
+      statistics: { minimum: 1.16, maximum: 1.16, average: 1.16 },
+      rates: [{ date: '2026-10-16', formattedDate: '2026-10-16', value: 1.16 }],
+    })
+    renderWithProviders(<App />)
+
+    await convert()
+
+    // The data grid has status regions of its own, so the line is found by its text.
+    const status = await screen.findByText('Liczba wczytanych kursów EUR → USD: 1.', {}, { timeout: 10_000 })
+    expect(status).toHaveAttribute('role', 'status')
+    expect(status).toHaveAttribute('aria-live', 'polite')
+  })
+
+  it('shows the error id of a server failure, which identifies it in the backend log', async () => {
+    vi.mocked(getExchangeRates).mockRejectedValue(
+      new ApiError(502, 'Nie udało się połączyć z serwisem NBP.', {}, '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-00'),
+    )
+    renderWithProviders(<App />)
+
+    await convert()
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Nie udało się połączyć z serwisem NBP.')
+    expect(alert).toHaveTextContent('Identyfikator błędu: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-00')
   })
 
   it('shows the error message and the field errors from the server', async () => {

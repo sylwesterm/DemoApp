@@ -30,10 +30,10 @@ public sealed class NbpCurrencyRateProviderTests : IDisposable
 
     private void GivenTable(string table, params (string Code, string Name)[] currencies) =>
         apiClient.GetLatestTableAsync(table, Arg.Any<CancellationToken>())
-            .Returns(new NbpTableDto(table, currencies.Select(c => new NbpTableRateDto(c.Name, c.Code)).ToList()));
+            .Returns(new NbpTableDto(currencies.Select(c => new NbpTableRateDto(c.Name, c.Code)).ToList()));
 
-    private static NbpRateSeriesDto Series(string code, params (string Date, decimal Mid)[] rates) =>
-        new(code, rates.Select(r => new NbpRateDto(DateOnly.Parse(r.Date, System.Globalization.CultureInfo.InvariantCulture), r.Mid)).ToList());
+    private static NbpRateSeriesDto Series(params (string Date, decimal Mid)[] rates) =>
+        new(rates.Select(r => new NbpRateDto(DateOnly.Parse(r.Date, System.Globalization.CultureInfo.InvariantCulture), r.Mid)).ToList());
 
     [Fact]
     public void Describes_NbpWithPlnAsBaseCurrency()
@@ -73,7 +73,7 @@ public sealed class NbpCurrencyRateProviderTests : IDisposable
         apiClient.GetLatestTableAsync("B", Arg.Any<CancellationToken>())
             .Returns(
                 _ => throw new ExternalServiceException("Serwis NBP jest niedostępny."),
-                _ => new NbpTableDto("B", [new NbpTableRateDto("afgani (Afganistan)", "AFN")]));
+                _ => new NbpTableDto([new NbpTableRateDto("afgani (Afganistan)", "AFN")]));
         var provider = CreateProvider();
 
         await Should.ThrowAsync<ExternalServiceException>(() => provider.GetCurrenciesAsync(CancellationToken.None));
@@ -98,7 +98,7 @@ public sealed class NbpCurrencyRateProviderTests : IDisposable
     public async Task GetRatesAsync_UsesTableTheCurrencyIsPublishedIn()
     {
         apiClient.GetRatesAsync("B", "AFN", Arg.Any<DateRange>(), Arg.Any<CancellationToken>())
-            .Returns(Series("AFN", ("2026-10-14", 0.060135m)));
+            .Returns(Series(("2026-10-14", 0.060135m)));
 
         var rates = await CreateProvider().GetRatesAsync("AFN", DateRange.SingleDay(new DateOnly(2026, 10, 14)), CancellationToken.None);
 
@@ -112,11 +112,11 @@ public sealed class NbpCurrencyRateProviderTests : IDisposable
         options.MaxDaysPerRequest = 10;
         var from = new DateOnly(2026, 1, 1);
         apiClient.GetRatesAsync("A", "EUR", new DateRange(from, from.AddDays(9)), Arg.Any<CancellationToken>())
-            .Returns(Series("EUR", ("2026-01-02", 4.21m)));
+            .Returns(Series(("2026-01-02", 4.21m)));
         apiClient.GetRatesAsync("A", "EUR", new DateRange(from.AddDays(10), from.AddDays(19)), Arg.Any<CancellationToken>())
-            .Returns(Series("EUR", ("2026-01-12", 4.22m)));
+            .Returns(Series(("2026-01-12", 4.22m)));
         apiClient.GetRatesAsync("A", "EUR", new DateRange(from.AddDays(20), from.AddDays(24)), Arg.Any<CancellationToken>())
-            .Returns(Series("EUR", ("2026-01-21", 4.23m)));
+            .Returns(Series(("2026-01-21", 4.23m)));
 
         var rates = await CreateProvider().GetRatesAsync("EUR", new DateRange(from, from.AddDays(24)), CancellationToken.None);
 
@@ -130,7 +130,7 @@ public sealed class NbpCurrencyRateProviderTests : IDisposable
         options.MaxDaysPerRequest = 1;
         var day = new DateOnly(2026, 10, 16);
         apiClient.GetRatesAsync("A", "EUR", DateRange.SingleDay(day), Arg.Any<CancellationToken>())
-            .Returns(Series("EUR", ("2026-10-16", 4.3661m)));
+            .Returns(Series(("2026-10-16", 4.3661m)));
         apiClient.GetRatesAsync("A", "EUR", DateRange.SingleDay(day.AddDays(1)), Arg.Any<CancellationToken>())
             .Returns((NbpRateSeriesDto?)null);
 
@@ -162,7 +162,7 @@ public sealed class NbpCurrencyRateProviderTests : IDisposable
     public async Task GetRatesAsync_NonPositiveRateFromNbp_ThrowsExternalServiceException()
     {
         apiClient.GetRatesAsync("A", "EUR", Arg.Any<DateRange>(), Arg.Any<CancellationToken>())
-            .Returns(Series("EUR", ("2026-10-16", 0m)));
+            .Returns(Series(("2026-10-16", 0m)));
 
         (await Should.ThrowAsync<ExternalServiceException>(
                 () => CreateProvider().GetRatesAsync("EUR", DateRange.SingleDay(new DateOnly(2026, 10, 16)), CancellationToken.None)))

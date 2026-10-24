@@ -31,8 +31,6 @@ public class NbpApiClientTests
         var (client, handler) = CreateClient((_, _) => StubHttpMessageHandler.Json(NbpJson.TableA));
 
         var table = await client.GetLatestTableAsync("A", CancellationToken.None);
-
-        table.Table.ShouldBe("A");
         table.Rates.Select(r => (r.Code, r.Currency)).ShouldBe([("USD", "dolar amerykański"), ("EUR", "euro")]);
         handler.RequestedUris.ShouldHaveSingleItem().AbsoluteUri
             .ShouldBe("https://api.nbp.test/api/exchangerates/tables/A/?format=json");

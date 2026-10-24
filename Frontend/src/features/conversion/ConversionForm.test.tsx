@@ -1,12 +1,12 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import dayjs from 'dayjs'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '../../api/ApiError'
 import { getCurrencies, getProviders } from '../../api/client'
 import type { Currency } from '../../api/types'
 import { renderWithProviders } from '../../test/render'
 import { ConversionForm } from './ConversionForm'
+import { todayInPoland } from './conversionFormModel'
 
 vi.mock('../../api/client')
 
@@ -64,8 +64,8 @@ describe('ConversionForm', () => {
 
     await user.click(screen.getByRole('button', { name: 'Przelicz' }))
 
-    expect(await screen.findByText('Wybierz walutę źródłową.')).toBeInTheDocument()
-    expect(screen.getByText('Wybierz walutę docelową.')).toBeInTheDocument()
+    expect(await screen.findByText('Waluta źródłowa jest wymagana.')).toBeInTheDocument()
+    expect(screen.getByText('Waluta docelowa jest wymagana.')).toBeInTheDocument()
     expect(onSubmit).not.toHaveBeenCalled()
   })
 
@@ -87,7 +87,7 @@ describe('ConversionForm', () => {
 
     await user.click(screen.getByRole('button', { name: 'Przelicz' }))
 
-    const today = dayjs().format('YYYY-MM-DD')
+    const today = todayInPoland().format('YYYY-MM-DD')
     expect(onSubmit).toHaveBeenCalledWith({
       provider: 'NBP',
       sourceCurrency: 'EUR',
@@ -116,11 +116,45 @@ describe('ConversionForm', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Serwis NBP nie odpowiedział w wymaganym czasie.')
   })
 
+  it('lets the user retry loading after a failure', async () => {
+    vi.mocked(getCurrencies).mockRejectedValueOnce(new ApiError(502, 'Nie udało się połączyć z serwisem NBP.'))
+    const { user } = await renderForm()
+    expect(await screen.findByRole('alert')).toHaveTextContent('Nie udało się połączyć z serwisem NBP.')
+
+    await user.click(screen.getByRole('button', { name: 'Spróbuj ponownie' }))
+
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
+    await choose(user, sourceField(), 'EUR - euro')
+    expect(getCurrencies).toHaveBeenCalledTimes(2)
+  })
+
+  it('loads the currencies of another provider and clears the chosen ones', async () => {
+    const { user } = await renderForm()
+    await choose(user, sourceField(), 'EUR - euro')
+
+    await user.click(screen.getByRole('combobox', { name: /Dostawca kursów/ }))
+    await user.click(await screen.findByRole('option', { name: 'Europejski Bank Centralny' }))
+
+    expect(sourceField()).toHaveValue('')
+    await waitFor(() => expect(getCurrencies).toHaveBeenLastCalledWith('ECB', expect.any(AbortSignal)))
+  })
+
   it('shows validation messages from the server next to their fields', async () => {
     await renderForm({ serverErrors: { dateFrom: ['Zakres dat nie może przekraczać 366 dni.'] } })
 
     const dateFrom = screen.getByRole('group', { name: 'Data od' })
     const field = dateFrom.closest('.MuiFormControl-root') as HTMLElement
     expect(within(field).getByText('Zakres dat nie może przekraczać 366 dni.')).toBeInTheDocument()
+  })
+
+  it('hides a server message once the user changes that field', async () => {
+    const { user } = await renderForm({
+      serverErrors: { targetCurrency: ['Waluta docelowa musi być inna niż waluta źródłowa.'] },
+    })
+    expect(screen.getByText('Waluta docelowa musi być inna niż waluta źródłowa.')).toBeInTheDocument()
+
+    await choose(user, targetField(), 'USD - dolar amerykański')
+
+    expect(screen.queryByText('Waluta docelowa musi być inna niż waluta źródłowa.')).not.toBeInTheDocument()
   })
 })
