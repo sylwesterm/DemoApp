@@ -1,0 +1,32 @@
+# Starts the whole application with one command:  docker compose up --build
+# Then open http://localhost:8080 (nginx serves the frontend and forwards /api to the backend).
+name: currency-rates
+
+services:
+  backend:
+    build: ./Backend
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      # Plain HTTP behind nginx: the HTTPS redirect has no HTTPS port to go to and only logs an English warning.
+      Serilog__MinimumLevel__Override__Microsoft.AspNetCore.HttpsPolicy: Error
+      # Optional AutoMapper licence key, passed through from the host's environment only when set there
+      # (never stored in the repository). Without it AutoMapper only logs a warning.
+      AutoMapper__LicenseKey:
+      # Any appsettings.json value can be overridden here, e.g.:
+      # Display__DateFormat: dd.MM.yyyy
+      # Display__CurrencySortOrder: NameAscending
+    volumes:
+      # Log files survive container restarts and rebuilds.
+      - backend-logs:/app/logs
+    restart: unless-stopped
+
+  frontend:
+    build: ./Frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  backend-logs:

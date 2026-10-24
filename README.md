@@ -16,6 +16,7 @@ W treści zadania jako frontend wskazany jest Angular. Ponieważ jest to aplikac
 - [.NET SDK 10](https://dotnet.microsoft.com/download/dotnet/10.0) (wersja 10.0.100 lub nowsza, patrz `Backend/global.json`)
 - [Node.js](https://nodejs.org/) 22.12 lub nowszy (albo 20.19+) z npm
 - opcjonalnie Visual Studio 2026 lub inne IDE obsługujące pliki `.slnx`
+- albo zamiast .NET i Node.js – sam Docker (patrz [Uruchomienie w Dockerze](#uruchomienie-w-dockerze))
 - dostęp do internetu (aplikacja pobiera kursy z `https://api.nbp.pl`)
 
 ## Szybki start
@@ -36,6 +37,25 @@ npm run dev
 ```
 
 Następnie otwórz **http://localhost:5173**, wybierz waluty i kliknij **Przelicz**. Szczegóły obu części opisują kolejne sekcje.
+
+## Uruchomienie w Dockerze
+
+Całą aplikację można też uruchomić jednym poleceniem – wymagany jest tylko [Docker](https://www.docker.com/) (np. Docker Desktop), bez .NET i Node.js. W katalogu głównym repozytorium:
+
+```bash
+docker compose up --build
+```
+
+Aplikacja jest dostępna pod adresem **http://localhost:8080**. Kontener `frontend` (nginx) serwuje zbudowany frontend i przekazuje zapytania `/api` do kontenera `backend`, więc API odpowiada również pod adresem `http://localhost:8080/api/providers`. Backend działa w środowisku `Production`, dlatego Swagger jest wyłączony – do przeglądania API służy uruchomienie lokalne opisane niżej.
+
+| Działanie | Polecenie |
+|---|---|
+| Zatrzymanie | `docker compose down` (dodaj `-v`, aby usunąć także logi) |
+| Logi backendu na żywo | `docker compose logs -f backend` |
+| Plik logu backendu | `docker compose exec backend sh -c "tail -n 50 logs/*.log"` |
+| Klucz licencji AutoMapper | ustaw zmienną `AutoMapper__LicenseKey` przed `docker compose up` (bash: `AutoMapper__LicenseKey=<klucz> docker compose up --build`) |
+
+Pliki logów są przechowywane w wolumenie `backend-logs`, więc przetrwają restart i przebudowanie kontenerów. Ustawienia z `appsettings.json` można nadpisać w sekcji `environment` usługi `backend` w pliku `compose.yaml` (przykłady są tam w komentarzach), np. `Display__DateFormat: dd.MM.yyyy`.
 
 ## Uruchomienie backendu
 
