@@ -12,9 +12,7 @@ namespace CurrencyRates.Api.ErrorHandling;
 /// and writes them to the log: rejected requests as warnings (with the stack trace only for domain rule
 /// violations), provider failures and bugs as errors with the full stack trace.
 /// </summary>
-internal sealed class GlobalExceptionHandler(
-    IProblemDetailsService problemDetailsService,
-    ILogger<GlobalExceptionHandler> logger) : IExceptionHandler
+internal sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger) : IExceptionHandler
 {
     public async ValueTask<bool> TryHandleAsync(
         HttpContext httpContext,
@@ -45,26 +43,9 @@ internal sealed class GlobalExceptionHandler(
                 break;
         }
 
-        httpContext.Response.StatusCode = statusCode;
-
-        var written = await problemDetailsService.TryWriteAsync(new ProblemDetailsContext
-        {
-            HttpContext = httpContext,
-            ProblemDetails = problem,
-        });
-
-        // TryWriteAsync declines when the Accept header rules out JSON (e.g. "text/plain"). Returning false would
-        // let the middleware write its own English response and log the exception again, so write JSON anyway.
-        if (!written)
-        {
-            await httpContext.Response.WriteAsJsonAsync(
-                problem,
-                problem.GetType(),
-                options: null,
-                contentType: "application/problem+json",
-                cancellationToken);
-        }
-
+        // Always written, also when the Accept header rules out JSON: returning false would let the middleware
+        // write its own English response and log the exception again.
+        await ProblemDetailsWriter.WriteAsync(httpContext, problem, cancellationToken);
         return true;
     }
 

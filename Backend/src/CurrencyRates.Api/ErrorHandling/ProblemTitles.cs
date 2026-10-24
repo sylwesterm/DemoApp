@@ -9,6 +9,7 @@ internal static class ProblemTitles
     public const string ProviderError = "Błąd dostawcy kursów walut.";
     public const string ProviderTimeout = "Dostawca kursów walut nie odpowiedział w wymaganym czasie.";
     public const string Unexpected = "Wystąpił nieoczekiwany błąd.";
+    public const string TooManyRequests = "Zbyt wiele zapytań.";
 
     /// <summary>Detail of a 500 response; the real cause is only written to the log, never sent to the client.</summary>
     public const string UnexpectedDetail = "Spróbuj ponownie później. Szczegóły błędu zapisano w dzienniku aplikacji.";

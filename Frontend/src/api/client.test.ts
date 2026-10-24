@@ -159,6 +159,28 @@ describe('errors', () => {
     },
   )
 
+  it('shows the rate limit message of the backend (429)', async () => {
+    fetchMock.mockResolvedValue(
+      problem(429, {
+        title: 'Zbyt wiele zapytań.',
+        detail: 'Dozwolonych jest 60 zapytań w ciągu 60 s. Spróbuj ponownie za 12 s.',
+      }),
+    )
+
+    const error = await failure(getProviders())
+
+    expect(error.status).toBe(429)
+    expect(error.message).toBe('Dozwolonych jest 60 zapytań w ciągu 60 s. Spróbuj ponownie za 12 s.')
+  })
+
+  it('has a Polish fallback for 429 without ProblemDetails', async () => {
+    fetchMock.mockResolvedValue(new Response('', { status: 429 }))
+
+    const error = await failure(getProviders())
+
+    expect(error.message).toBe('Zbyt wiele zapytań. Odczekaj chwilę i spróbuj ponownie.')
+  })
+
   it('uses a Polish message by status for a client error without ProblemDetails', async () => {
     fetchMock.mockResolvedValue(new Response('', { status: 404 }))
 

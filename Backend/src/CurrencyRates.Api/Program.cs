@@ -1,5 +1,6 @@
 using System.Globalization;
 using CurrencyRates.Api.ErrorHandling;
+using CurrencyRates.Api.RateLimiting;
 using CurrencyRates.Application;
 using CurrencyRates.Infrastructure;
 using Serilog;
@@ -34,6 +35,7 @@ try
     builder.Services.AddApplication(builder.Configuration);
     builder.Services.AddInfrastructure(builder.Configuration);
     builder.Services.AddErrorHandling();
+    builder.Services.AddApiRateLimiting(builder.Configuration);
     builder.Services.AddControllers();
     builder.Services.AddOpenApi();
 
@@ -51,6 +53,8 @@ try
             exception is null ? LogEventLevel.Information : LogEventLevel.Error;
     });
     app.UseExceptionHandler();
+    // Inside request logging, so a rejected request (429) is logged with its status like any other.
+    app.UseRateLimiter();
 
     if (app.Environment.IsDevelopment())
     {
@@ -69,7 +73,7 @@ try
         app.UseHttpsRedirection();
     }
 
-    app.MapControllers();
+    app.MapControllers().RequireRateLimiting(RateLimitingExtensions.ApiPolicy);
 
     await app.RunAsync();
 }

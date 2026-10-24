@@ -55,7 +55,7 @@ Aplikacja jest dostępna pod adresem **http://localhost:8080**. Kontener `fronte
 | Plik logu backendu | `docker compose exec backend sh -c "tail -n 50 logs/*.log"` |
 | Klucz licencji AutoMapper | ustaw zmienną `AutoMapper__LicenseKey` przed `docker compose up` (bash: `AutoMapper__LicenseKey=<klucz> docker compose up --build`) |
 
-Pliki logów są przechowywane w wolumenie `backend-logs`, więc przetrwają restart i przebudowanie kontenerów. Ustawienia z `appsettings.json` można nadpisać w sekcji `environment` usługi `backend` w pliku `compose.yaml` (przykłady są tam w komentarzach), np. `Display__DateFormat: dd.MM.yyyy`.
+nginx dodaje do odpowiedzi nagłówki bezpieczeństwa, a backend stosuje limit zapytań osobno dla każdego klienta (patrz [Bezpieczeństwo](#bezpieczeństwo)). Pliki logów są przechowywane w wolumenie `backend-logs`, więc przetrwają restart i przebudowanie kontenerów. Ustawienia z `appsettings.json` można nadpisać w sekcji `environment` usługi `backend` w pliku `compose.yaml` (przykłady są tam w komentarzach), np. `Display__DateFormat: dd.MM.yyyy`.
 
 ## Uruchomienie backendu
 
@@ -87,6 +87,7 @@ Po starcie API jest dostępne pod adresem `http://localhost:5178`, a dokumentacj
 | `400 Bad Request` | Nieprawidłowe parametry, np. brak waluty, ta sama waluta źródłowa i docelowa, data z przyszłości, błędny format daty. Odpowiedź zawiera komunikaty po polsku przypisane do pól. |
 | `404 Not Found` | Nieznany dostawca lub waluta nieobsługiwana przez dostawcę. |
 | `502 Bad Gateway` | Dostawca zwrócił błąd lub nieprawidłowe dane albo jest nieosiągalny. |
+| `429 Too Many Requests` | Przekroczony limit zapytań z jednego adresu IP (domyślnie 60 na minutę). Nagłówek `Retry-After` podaje, po ilu sekundach można spróbować ponownie. |
 | `504 Gateway Timeout` | Dostawca nie odpowiedział w wymaganym czasie. |
 | `500 Internal Server Error` | Nieoczekiwany błąd. Klient dostaje ogólny komunikat, a szczegóły trafiają do logu. |
 
@@ -105,6 +106,8 @@ Cała konfiguracja znajduje się w pliku `Backend/src/CurrencyRates.Api/appsetti
 | `CurrencyProviders:Nbp:CurrencyListCacheDuration` | Jak długo lista walut jest przechowywana w pamięci podręcznej. | `01:00:00` |
 | `CurrencyProviders:Nbp:Resilience:*` | Ponowienia i limity czasu (patrz niżej). | 3 ponowienia, 0,5 s, 10 s, 30 s |
 | `Serilog:MinimumLevel:Default` | Poziom logowania (`Debug`, `Information`, `Warning`, `Error`). | `Information` (`Debug` w `Development`) |
+| `RateLimiting:PermitLimit` | Liczba zapytań do API dozwolona dla jednego adresu IP w oknie czasowym. | `60` |
+| `RateLimiting:Window` | Długość okna limitu zapytań (od 1 s do 1 h). | `00:01:00` |
 | `Serilog:WriteTo:1:Args:restrictedToMinimumLevel` | Najniższy poziom zapisywany do pliku (konsola dostaje wszystko od poziomu ogólnego). | `Information` |
 | `Serilog:WriteTo:1:Args:path` | Ścieżka pliku logu. | `logs/currency-rates-.log` |
 
@@ -152,6 +155,22 @@ Wywołania API NBP są zabezpieczone (biblioteka `Microsoft.Extensions.Http.Resi
 
 Parametry ustawia się w sekcji `CurrencyProviders:Nbp:Resilience` (`MaxRetryAttempts`, `RetryBaseDelay`, `AttemptTimeout`, `TotalRequestTimeout`). Lista walut jest dodatkowo przechowywana w pamięci podręcznej. Zakres jednego przeliczenia jest ograniczony do 366 dni, co mieści się w limicie API NBP (367 dni), więc wystarcza jedno zapytanie na walutę. Gdyby `MaxDaysPerRequest` ustawiono niżej (np. dla dostawcy o mniejszym limicie), zakres zostanie podzielony na kilka równoległych zapytań.
 
+## Bezpieczeństwo
+
+Aplikacja udostępnia wyłącznie publiczne kursy walut, nie przechowuje danych użytkowników i niczego nie zapisuje, dlatego nie ma logowania ani autoryzacji – nie byłoby czego chronić, a utrudniłoby to uruchomienie. Zastosowane zabezpieczenia:
+
+- **Limit zapytań** – każdy adres IP może wykonać określoną liczbę zapytań do API w oknie czasowym (domyślnie 60 na minutę, sekcja `RateLimiting`). Każde zapytanie o kursy może wywołać zapytania do API NBP, więc limit chroni również dostawcę. Po przekroczeniu API zwraca `429` z polskim komunikatem i nagłówkiem `Retry-After`, a zdarzenie trafia do logu.
+- **Walidacja danych wejściowych** – kody walut, daty i długość zakresu są sprawdzane, zanim zapytanie trafi do dostawcy.
+- **Brak wycieku informacji** – przy błędzie `500` klient dostaje ogólny komunikat, a szczegóły (stos wywołań) trafiają wyłącznie do logu.
+- **Ochrona logów** – wartości podane przez użytkownika są zapisywane w jednej linii, więc nie da się nimi podrobić wpisów w pliku logu.
+- **Sekrety poza repozytorium** – klucz licencji AutoMapper jest przekazywany przez sekrety użytkownika lub zmienną środowiskową.
+- **Jedno źródło (bez CORS)** – frontend i API działają pod jednym adresem (proxy Vite, a w Dockerze nginx), więc API nie potrzebuje polityki CORS.
+- **Nagłówki bezpieczeństwa** (nginx w Dockerze) – `Content-Security-Policy` (tylko własne skrypty, bez skryptów inline), `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` i `Permissions-Policy`; nginx nie ujawnia też swojej wersji.
+- **Kontenery** – backend działa jako użytkownik bez uprawnień administratora i nie jest wystawiony na zewnątrz – dostęp ma tylko nginx.
+- **Zależności** – pakiety NuGet i npm są sprawdzane pod kątem znanych podatności (`dotnet list package --vulnerable`, `npm audit`).
+
+W Dockerze backend odczytuje adres klienta z nagłówka `X-Forwarded-For` ustawianego przez nginx (`ASPNETCORE_FORWARDEDHEADERS_ENABLED`), dzięki czemu limit dotyczy każdego użytkownika osobno, a nie wszystkich naraz. Podrobienie tego nagłówka nie omija limitu, ponieważ nginx dopisuje prawdziwy adres na końcu.
+
 ## Testy
 
 Backend:
@@ -173,7 +192,7 @@ npm test
 | `CurrencyRates.Domain.Tests` | Reguły modeli domenowych (waluta, zakres dat, kurs, statystyki). |
 | `CurrencyRates.Application.Tests` | Obsługa zapytań, walidacja, kursy krzyżowe, statystyki, sortowanie, mapowanie. |
 | `CurrencyRates.Infrastructure.Tests` | Klient API NBP (na atrapie HTTP), ponowienia, dzielenie zakresów, konfiguracja. |
-| `CurrencyRates.Api.Tests` | Testy integracyjne endpointów i obsługi błędów (`WebApplicationFactory`, bez dostępu do sieci) oraz testy architektury pilnujące zależności między warstwami i konwencji. |
+| `CurrencyRates.Api.Tests` | Testy integracyjne endpointów, obsługi błędów i limitu zapytań (`WebApplicationFactory`, bez dostępu do sieci) oraz testy architektury pilnujące zależności między warstwami i konwencji. |
 
 ## Architektura
 
@@ -249,7 +268,7 @@ Biblioteki są dzielone na osobne pliki, a tabela i wykres są pobierane dopiero
 
 Testy (Vitest, React Testing Library, jsdom) nie wymagają uruchomionego backendu – zapytania do API są zastępowane atrapami:
 
-- klient API – adresy zapytań, odpowiedź 204, komunikaty błędów, brak połączenia, anulowanie zapytania;
+- klient API – adresy zapytań, odpowiedź 204, komunikaty błędów (w tym limit zapytań 429), brak połączenia, anulowanie zapytania;
 - walidacja formularza i budowanie zapytania;
 - formularz – domyślny dostawca, wyszukiwanie walut, komunikaty walidacji, zamiana walut, zmiana dostawcy, ponowienie pobierania, błędy z serwera;
 - pobieranie danych – anulowanie nieaktualnych zapytań i ignorowanie spóźnionych odpowiedzi;

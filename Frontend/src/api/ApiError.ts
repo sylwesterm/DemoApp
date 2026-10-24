@@ -50,6 +50,8 @@ function fallbackMessage(status: number): string {
       return 'Nieprawidłowe parametry żądania.'
     case 404:
       return 'Nie znaleziono zasobu.'
+    case 429:
+      return 'Zbyt wiele zapytań. Odczekaj chwilę i spróbuj ponownie.'
     default:
       return `Serwer zwrócił nieoczekiwaną odpowiedź (kod ${status}).`
   }

@@ -7,6 +7,9 @@ services:
     build: ./Backend
     environment:
       ASPNETCORE_ENVIRONMENT: Production
+      # The client's address comes from nginx's X-Forwarded-For, so the rate limit applies per user and not to
+      # nginx as a whole. Safe here: the backend is reachable only through nginx (no published port).
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
       # Plain HTTP behind nginx: the HTTPS redirect has no HTTPS port to go to and only logs an English warning.
       Serilog__MinimumLevel__Override__Microsoft.AspNetCore.HttpsPolicy: Error
       # Optional AutoMapper licence key, passed through from the host's environment only when set there
